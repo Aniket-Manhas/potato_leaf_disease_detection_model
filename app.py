@@ -4,11 +4,29 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 import io
 from PIL import Image
+import os
+import requests
 
-# Load model
-model = load_model("potato_disease_model.h5")
+# Constants
+MODEL_URL = "https://storage.googleapis.com/potato-model-detection/potato_disease_model.h5"
+MODEL_PATH = "potato_disease_model.h5"
 
-# Define class names (update these with your actual classes)
+# Download model if not already present
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        print("Downloading model...")
+        response = requests.get(MODEL_URL)
+        if response.status_code == 200:
+            with open(MODEL_PATH, 'wb') as f:
+                f.write(response.content)
+            print("Model downloaded successfully.")
+        else:
+            raise Exception(f"Failed to download model: {response.status_code}")
+
+# Call download before loading the model
+download_model()
+model = load_model(MODEL_PATH)
+
 class_names = ["Early Blight", "Late Blight", "Healthy"]
 
 # Initialize Flask app
