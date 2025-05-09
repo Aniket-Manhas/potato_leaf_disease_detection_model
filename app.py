@@ -9,7 +9,7 @@ import requests
 
 # Constants
 MODEL_URL = "https://storage.googleapis.com/potato-model-detection/potato_disease_model.h5"
-MODEL_PATH = "potato_disease_model.h5"
+MODEL_PATH = "best_model.keras"
 
 # Download model if not already present
 def download_model():
