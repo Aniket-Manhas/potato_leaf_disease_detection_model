@@ -1,66 +1,30 @@
-from flask import Flask, request, jsonify
+import gradio as gr
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import numpy as np
-import io
 from PIL import Image
-import os
-import requests
 
-# Constants
-MODEL_URL = "https://storage.googleapis.com/potato-model-detection/potato_disease_model.h5"
+# Load model
 MODEL_PATH = "best_model.keras"
-
-# Download model if not already present
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        print("Downloading model...")
-        response = requests.get(MODEL_URL)
-        if response.status_code == 200:
-            with open(MODEL_PATH, 'wb') as f:
-                f.write(response.content)
-            print("Model downloaded successfully.")
-        else:
-            raise Exception(f"Failed to download model: {response.status_code}")
-
-# Call download before loading the model
-download_model()
 model = load_model(MODEL_PATH)
-
 class_names = ["Early Blight", "Late Blight", "Healthy"]
 
-# Initialize Flask app
-app = Flask(__name__)
-
-# Image preprocessing function
-def preprocess_image(img_bytes):
-    img = Image.open(io.BytesIO(img_bytes)).resize((256, 256))
+# Preprocess image
+def preprocess(img):
+    img = img.resize((256, 256))
     img_array = image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+    prediction = model.predict(img_array)
+    class_index = np.argmax(prediction[0])
+    return class_names[class_index]
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in request"}), 400
+# Gradio Interface
+interface = gr.Interface(
+    fn=preprocess,
+    inputs=gr.Image(type="pil"),
+    outputs=gr.Label(),
+    title="Potato Leaf Disease Detection",
+    description="Upload a potato leaf image to classify as Early Blight, Late Blight, or Healthy."
+)
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-
-    try:
-        img_bytes = file.read()
-        processed = preprocess_image(img_bytes)
-        prediction = model.predict(processed)
-        class_index = np.argmax(prediction[0])
-        result = class_names[class_index]
-        return jsonify({"prediction": result})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/", methods=["GET"])
-def home():
-    return "Potato Disease Detection API is running!"
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+interface.launch()
